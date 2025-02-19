@@ -20,6 +20,7 @@ package main
 */
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -83,15 +84,7 @@ func NewStore(filename string) (*Storage, error) {
 	return storage, nil
 } 
 
-func (s *Storage) DeleteAll() error {
-	
-	s.clearCacheFile()
-	clear(s.Rqs)
-
-	return nil
-}
-
-func (s *Storage) clearCacheFile() error {
+func (s *Storage) resetCacheFile() error {
 	err := s.FileCache.Truncate(0)
 	if err != nil {
 		return fmt.Errorf("(deleteAll) truncate failed: %w", err)
@@ -106,4 +99,63 @@ func (s *Storage) clearCacheFile() error {
 	}
 
 	return nil
+}
+
+func (s *Storage) DeleteAll() error {
+	if err := s.resetCacheFile(); err != nil {
+		return err
+	}
+
+	clear(s.Rqs)
+
+	return nil
+}
+
+func (s* Storage) writeToCacheFile() error {
+	// encode the in-memory store
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", " ")
+	if err := enc.Encode(s.Rqs); err != nil {
+		return fmt.Errorf("writeFileError - encoding %w", err)
+	}
+
+	// reset cache
+	s.resetCacheFile()
+	
+	// write encoded in-memory data to cache file
+	if _, err := s.FileCache.Write(buf.Bytes()); err != nil {
+		return fmt.Errorf("writeFileError - write %w", err)
+	}
+	fmt.Println("Successfully cached")
+	return nil
+}
+
+func (s *Storage) writeToMap(url string, resp []byte) error {
+	// convert slice of bytes to interface
+	var mapping interface{} 
+	err := json.Unmarshal(resp, &mapping)
+	if err != nil {
+		return fmt.Errorf("error (cacheResp - unmarshal): %w", err)
+	}
+	s.Rqs[url] = mapping
+	fmt.Printf("stored requests %v", s.Rqs)
+
+	return nil
+}
+
+func (s *Storage) Save(url string, resp []byte) error {
+	err := s.writeToMap(url, resp)
+	if err != nil { return err }
+
+	if err := s.writeToCacheFile(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) Get(url string) (string, error) {
+	return "", nil
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -13,50 +11,6 @@ import (
 var origin *string;
 var store *Storage
 
-
-func writeToFile(mapping map[string]interface{}) error {
-
-	// add to the 
-	// b, err := json.MarshalIndent(mapping, "", " ")
-	// if err != nil {
-	// 	return fmt.Errorf("writeFileError - marshalIndent %w", err)
-	// }
-	// fmt.Printf("marshalled indent data %v, %v", b, mapping)
-
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", " ")
-	if err := enc.Encode(mapping); err != nil {
-		return fmt.Errorf("writeFileError - encoding %w", err)
-	}
-
-	store.clearCacheFile()
-	
-	if _, err := store.FileCache.Write(buf.Bytes()); err != nil {
-		return fmt.Errorf("writeFileError - write %w", err)
-	}
-	fmt.Println("Successfully cached")
-	return nil
-}
-
-func cacheResp(url string, resp []byte) error {
-
-	var mapping interface{} 
-	err := json.Unmarshal(resp, &mapping)
-	if err != nil {
-		return fmt.Errorf("error (cacheResp - unmarshal): %w", err)
-	}
-	store.Rqs[url] = mapping
-	fmt.Printf("stored requests %v", store.Rqs)
-
-	if err := writeToFile(store.Rqs); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func handleGetRequests(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Path[1:]
 	query := r.URL.RawQuery
@@ -64,31 +18,25 @@ func handleGetRequests(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s%s?%s", *origin, params, query)
 	fmt.Println(url)
 
-	// before making a request, get response from cache 
+	if cacheRes, err := store.Get(url); cacheRes != "" && err != nil {
+		fmt.Fprintf(w, "%s", cacheRes)
+		return
+	}
 	
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Print(err)
+		http.Error(w, "Failed to fetch data", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
-
-	// b, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	log.Println(err)
-	// } 
-	// fmt.Printf("BODY %s", string(b))
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// result := map[string]interface{}{}
-	// err = json.NewDecoder(resp.Body).Decode(result)
-	
 
-	if err = cacheResp(url, b); err != nil {
+	if err = store.Save(url, b); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
