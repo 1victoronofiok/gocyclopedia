@@ -1,0 +1,48 @@
+{
+ "https://dummyjson.com/products?limit=1&select=title,rating": {
+  "limit": 1,
+  "products": [
+   {
+    "id": 1,
+    "rating": 4.94,
+    "title": "Essence Mascara Lash Princess"
+   }
+  ],
+  "skip": 0,
+  "total": 194
+ },
+ "https://dummyjson.com/products?limit=1&skip=100&select=title,rating": {
+  "limit": 1,
+  "products": [
+   {
+    "id": 101,
+    "rating": 3.11,
+    "title": "Apple AirPods Max Silver"
+   }
+  ],
+  "skip": 100,
+  "total": 194
+ },
+ "https://dummyjson.com/products?limit=3&select=title,rating": {
+  "limit": 3,
+  "products": [
+   {
+    "id": 1,
+    "rating": 4.94,
+    "title": "Essence Mascara Lash Princess"
+   },
+   {
+    "id": 2,
+    "rating": 3.28,
+    "title": "Eyeshadow Palette with Mirror"
+   },
+   {
+    "id": 3,
+    "rating": 3.82,
+    "title": "Powder Canister"
+   }
+  ],
+  "skip": 0,
+  "total": 194
+ }
+}
