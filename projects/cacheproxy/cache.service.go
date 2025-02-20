@@ -190,7 +190,7 @@ func (s *Storage) sync(mapping map[string]interface{}) error {
 // return resp
 func (s *Storage) Get(url string) (interface{}, error) {
 	if resp, found := s.getInMemResponse(url); found {
-		return json.Marshal(resp)
+		return resp, nil
 	}
 
 	// get all from cache in order to sync in memory data

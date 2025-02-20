@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -18,9 +19,19 @@ func handleGetRequests(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s%s?%s", *origin, params, query)
 	fmt.Println(url)
 
-	if cacheRes, err := store.Get(url); err == nil {
-		fmt.Printf("Gotten from cache %v", cacheRes)
-		fmt.Fprintf(w, "%s", cacheRes)
+	if cacheRes, err := store.Get(url); err == nil && cacheRes != nil {
+		// fmt.Fprintf(w, "%s", cacheRes)
+
+		b, err := json.Marshal(cacheRes)
+		if err != nil {
+			http.Error(w, "Failed to marshal cache response", http.StatusInternalServerError)
+			return
+		}
+		fmt.Println("Response from cache")
+		w.Header().Set("X-Cache", "HIT") // headers should be set before write header else they might not be applied
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
 		return
 	}
 
@@ -37,12 +48,18 @@ func handleGetRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = store.Save(url, b); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if resp.StatusCode == 200 {
+		if err = store.Save(url, b); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	fmt.Fprintf(w, "%v", string(b))
+	// fmt.Fprintf(w, "%v", string(b))
+	w.Header().Set("X-Cache", "MISS")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(b)
 }
 
 func handleClearCache(w http.ResponseWriter, r *http.Request) {
