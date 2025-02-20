@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-var origin *string;
+var origin *string
 var store *Storage
 
 func handleGetRequests(w http.ResponseWriter, r *http.Request) {
@@ -18,11 +18,12 @@ func handleGetRequests(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s%s?%s", *origin, params, query)
 	fmt.Println(url)
 
-	if cacheRes, err := store.Get(url); cacheRes != "" && err != nil {
+	if cacheRes, err := store.Get(url); err == nil {
+		fmt.Printf("Gotten from cache %v", cacheRes)
 		fmt.Fprintf(w, "%s", cacheRes)
 		return
 	}
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, "Failed to fetch data", http.StatusBadGateway)
@@ -75,7 +76,7 @@ func main() {
 		store = ns
 		fmt.Println(store)
 	}
-	
+
 	// fmt.Printf("port: %s, origin: %s", *port, *origin)
 	fmt.Println("Server listening...")
 

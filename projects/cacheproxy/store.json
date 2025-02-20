@@ -23,6 +23,30 @@
   "skip": 100,
   "total": 194
  },
+ "https://dummyjson.com/products?limit=1&skip=40&select=title,rating": {
+  "limit": 1,
+  "products": [
+   {
+    "id": 41,
+    "rating": 4.55,
+    "title": "Tissue Paper Box"
+   }
+  ],
+  "skip": 40,
+  "total": 194
+ },
+ "https://dummyjson.com/products?limit=1&skip=50&select=title,rating": {
+  "limit": 1,
+  "products": [
+   {
+    "id": 51,
+    "rating": 2.73,
+    "title": "Boxed Blender"
+   }
+  ],
+  "skip": 50,
+  "total": 194
+ },
  "https://dummyjson.com/products?limit=3&select=title,rating": {
   "limit": 3,
   "products": [

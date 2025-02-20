@@ -24,11 +24,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 )
 
 type Storage struct {
-	Rqs map[string]interface{}
+	Rqs       map[string]interface{}
 	FileCache *os.File
 }
 
@@ -58,7 +59,9 @@ func (s *Storage) load() error {
 
 	s.Rqs = map[string]interface{}{}
 
-	if len(b) == 0 { return nil }
+	if len(b) == 0 {
+		return nil
+	}
 
 	if err = json.Unmarshal(b, &s.Rqs); err != nil {
 		return fmt.Errorf("load error - unmarshal: %w", err)
@@ -70,7 +73,7 @@ func (s *Storage) load() error {
 func NewStore(filename string) (*Storage, error) {
 	storage := new(Storage)
 
-	file, err := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0644)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +85,7 @@ func NewStore(filename string) (*Storage, error) {
 	}
 
 	return storage, nil
-} 
+}
 
 func (s *Storage) resetCacheFile() error {
 	err := s.FileCache.Truncate(0)
@@ -90,7 +93,7 @@ func (s *Storage) resetCacheFile() error {
 		return fmt.Errorf("(deleteAll) truncate failed: %w", err)
 	}
 
-	if _, err = s.FileCache.Seek(0,0); err != nil {
+	if _, err = s.FileCache.Seek(0, 0); err != nil {
 		return fmt.Errorf("(deleteAll) seek failed: %w", err)
 	}
 
@@ -111,7 +114,7 @@ func (s *Storage) DeleteAll() error {
 	return nil
 }
 
-func (s* Storage) writeToCacheFile() error {
+func (s *Storage) writeToCacheFile() error {
 	// encode the in-memory store
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -123,7 +126,7 @@ func (s* Storage) writeToCacheFile() error {
 
 	// reset cache
 	s.resetCacheFile()
-	
+
 	// write encoded in-memory data to cache file
 	if _, err := s.FileCache.Write(buf.Bytes()); err != nil {
 		return fmt.Errorf("writeFileError - write %w", err)
@@ -134,7 +137,7 @@ func (s* Storage) writeToCacheFile() error {
 
 func (s *Storage) writeToMap(url string, resp []byte) error {
 	// convert slice of bytes to interface
-	var mapping interface{} 
+	var mapping interface{}
 	err := json.Unmarshal(resp, &mapping)
 	if err != nil {
 		return fmt.Errorf("error (cacheResp - unmarshal): %w", err)
@@ -147,7 +150,9 @@ func (s *Storage) writeToMap(url string, resp []byte) error {
 
 func (s *Storage) Save(url string, resp []byte) error {
 	err := s.writeToMap(url, resp)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	if err := s.writeToCacheFile(); err != nil {
 		return err
@@ -156,6 +161,61 @@ func (s *Storage) Save(url string, resp []byte) error {
 	return nil
 }
 
-func (s *Storage) Get(url string) (string, error) {
-	return "", nil
+func (s *Storage) getInMemResponse(url string) (resp interface{}, found bool) {
+	resp, found = s.Rqs[url]
+	return
 }
+
+func (s *Storage) getAllFromCache() (map[string]interface{}, error) {
+	mapping := map[string]interface{}{}
+
+	decoder := json.NewDecoder(s.FileCache)
+	if err := decoder.Decode(&mapping); err != nil {
+		return nil, fmt.Errorf("error (getAllFromCache - Decode) %w", err)
+	}
+
+	return mapping, nil
+}
+
+func (s *Storage) sync(mapping map[string]interface{}) error {
+	// will implement tthis
+	fmt.Printf("applied sync %v ", mapping)
+	return nil
+}
+
+// check if resp for url can be found in in-mem store
+// if found return,
+// else check cache
+// if found sync (should be a separate goroutine in order not to block)
+// return resp
+func (s *Storage) Get(url string) (interface{}, error) {
+	if resp, found := s.getInMemResponse(url); found {
+		return json.Marshal(resp)
+	}
+
+	// get all from cache in order to sync in memory data
+	mapping, err := s.getAllFromCache()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	resp, found := mapping[url]
+	if !found {
+		return nil, nil
+	}
+
+	// found then sync
+	if err = s.sync(mapping); err != nil {
+		log.Print("Failed to sync")
+	}
+
+	// return resp
+	return resp, nil
+}
+
+// urls -> urlkeystore
+
+// id: {origin: "", params: "", query: "", headers: "", }
+// [prod1, prod2]
+// post [prod1, prod2, prod3]
+// should be able to invalidate data
